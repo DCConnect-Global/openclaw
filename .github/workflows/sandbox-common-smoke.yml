@@ -1,17 +1,6 @@
 name: Sandbox Common Smoke
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.sandbox
-      - Dockerfile.sandbox-common
-      - scripts/sandbox-common-setup.sh
-  pull_request:
-    paths:
-      - Dockerfile.sandbox
-      - Dockerfile.sandbox-common
-      - scripts/sandbox-common-setup.sh
+on: [workflow_dispatch] # disabled in fork — rely on upstream
 
 concurrency:
   group: sandbox-common-smoke-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

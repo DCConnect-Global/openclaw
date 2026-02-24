@@ -1,23 +1,6 @@
 name: Docker Release
 
-on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.mdx"
-      - ".agents/**"
-      - "skills/**"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag to backfill (for example v2026.3.13)
-        required: true
-        type: string
+on: [workflow_dispatch] # disabled in fork — rely on upstream
 
 concurrency:
   group: docker-release-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}

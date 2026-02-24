@@ -57,11 +57,17 @@ RUN corepack enable
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY ui/package.json ./ui/package.json
-COPY patches ./patches
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY --chown=node:node ui/package.json ./ui/package.json
+COPY --chown=node:node patches ./patches
 
 COPY --from=ext-deps /out/ ./extensions/
+
+# Allow the node user passwordless sudo (requires "sudo" in
+# OPENCLAW_DOCKER_APT_PACKAGES). Harmless no-op if sudo is absent.
+RUN if command -v sudo >/dev/null 2>&1; then \
+      echo "node ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers; \
+    fi
 
 # Reduce OOM risk on low-memory hosts during dependency installation.
 # Docker builds on small VMs may otherwise fail with "Killed" (exit 137).
@@ -202,8 +208,6 @@ RUN --mount=type=cache,id=openclaw-bookworm-apt-cache,target=/var/cache/apt,shar
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg && \
       install -m 0755 -d /etc/apt/keyrings && \
-      # Verify Docker apt signing key fingerprint before trusting it as a root key.
-      # Update OPENCLAW_DOCKER_GPG_FINGERPRINT when Docker rotates release keys.
       curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg.asc && \
       expected_fingerprint="$(printf '%s' "$OPENCLAW_DOCKER_GPG_FINGERPRINT" | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')" && \
       actual_fingerprint="$(gpg --batch --show-keys --with-colons /tmp/docker.gpg.asc | awk -F: '$1 == "fpr" { print toupper($10); exit }')" && \
@@ -227,10 +231,43 @@ RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw \
 
 ENV NODE_ENV=production
 
+# Optional: Install Linuxbrew for skill dependency management.
+# Build with: docker build --build-arg OPENCLAW_INSTALL_BREW=1 ...
+# Adds ~500MB but enables brew-based skill installation (uv, go, signal-cli, etc.)
+ARG OPENCLAW_INSTALL_BREW=""
+RUN if [ -n "$OPENCLAW_INSTALL_BREW" ]; then \
+      apt-get update && \
+      DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential curl file git procps && \
+      if ! id -u linuxbrew >/dev/null 2>&1; then useradd -m -s /bin/bash linuxbrew; fi && \
+      mkdir -p /home/linuxbrew/.linuxbrew && \
+      chown -R linuxbrew:linuxbrew /home/linuxbrew && \
+      su - linuxbrew -c "NONINTERACTIVE=1 CI=1 /bin/bash -c '$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)'" && \
+      if [ ! -e /home/linuxbrew/.linuxbrew/Library ]; then ln -s /home/linuxbrew/.linuxbrew/Homebrew/Library /home/linuxbrew/.linuxbrew/Library; fi && \
+      if [ ! -x /home/linuxbrew/.linuxbrew/bin/brew ]; then echo "brew install failed"; exit 1; fi && \
+      chown -R node:node /home/linuxbrew/.linuxbrew && \
+      apt-get clean && \
+      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+    fi
+ENV HOMEBREW_PREFIX=/home/linuxbrew/.linuxbrew
+ENV HOMEBREW_CELLAR=/home/linuxbrew/.linuxbrew/Cellar
+ENV HOMEBREW_REPOSITORY=/home/linuxbrew/.linuxbrew/Homebrew
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+
+# Pass extra brew packages at build time, e.g.:
+#   --build-arg OPENCLAW_DOCKER_brew_PACKAGES="uv openai-whisper"
+# Use --verbose to see the actual error in GitHub Action logs
+USER node
+ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
+RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&1; then \
+      brew update && \
+      for pkg in $OPENCLAW_DOCKER_BREW_PACKAGES; do \
+        brew install --quiet "$pkg" || exit 1; \
+      done; \
+    fi
+
 # Security hardening: Run as non-root user
 # The node:24-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges
-USER node
 
 # Start gateway server with default config.
 # Binds to loopback (127.0.0.1) by default for security.
@@ -246,4 +283,8 @@ USER node
 # For external access from host/ingress, override bind to "lan" and set auth.
 HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+
+# This entrypoint drops from root to node after fixing ~/.openclaw ownership.
+# CMD is provided by docker-compose (or an override) rather than baked in.
+USER root
+ENTRYPOINT ["/app/entrypoint.sh"]
