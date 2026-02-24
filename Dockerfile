@@ -22,12 +22,22 @@ RUN corepack enable
 WORKDIR /app
 RUN chown node:node /app
 
+# Pass extra packages at build time, e.g.:
+#   --build-arg OPENCLAW_DOCKER_APT_PACKAGES="vim gosu sudo"
+# NOTE: If you use the entrypoint.sh that drops privileges via gosu,
+# include "gosu" and "sudo" here and the sudoers rule below will apply.
 ARG OPENCLAW_DOCKER_APT_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES && \
       apt-get clean && \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+    fi
+
+# Allow the node user passwordless sudo (requires "sudo" in
+# OPENCLAW_DOCKER_APT_PACKAGES). Harmless no-op if sudo is absent.
+RUN if command -v sudo >/dev/null 2>&1; then \
+      echo "node ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers; \
     fi
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -68,6 +78,7 @@ RUN if [ -n "$OPENCLAW_INSTALL_DOCKER_CLI" ]; then \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg && \
       install -m 0755 -d /etc/apt/keyrings && \
+
       # Verify Docker apt signing key fingerprint before trusting it as a root key.
       # Update OPENCLAW_DOCKER_GPG_FINGERPRINT when Docker rotates release keys.
       curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg.asc && \
@@ -111,10 +122,15 @@ RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw \
 
 ENV NODE_ENV=production
 
+# Install Homebrew as the node user, then install uv via brew.
+USER node
+RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
+RUN brew install uv
+
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges
-USER node
 
 # Start gateway server with default config.
 # Binds to loopback (127.0.0.1) by default for security.
@@ -130,4 +146,8 @@ USER node
 # For external access from host/ingress, override bind to "lan" and set auth.
 HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+
+# This entrypoint drops from root to node after fixing ~/.openclaw ownership.
+# CMD is provided by docker-compose (or an override) rather than baked in.
+USER root
+ENTRYPOINT ["entrypoint.sh"]
