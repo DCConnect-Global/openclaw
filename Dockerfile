@@ -44,6 +44,10 @@ RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
       rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
     fi
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+RUN mkdir -p /home/node/.cache/uv && chown -R node:node /home/node/.cache/uv
+ENV UV_CACHE_DIR=/home/node/.cache/uv
+
 USER node
 COPY --chown=node:node . .
 RUN pnpm build
@@ -58,6 +62,9 @@ ENV NODE_ENV=production
 # This reduces the attack surface by preventing container escape via root privileges
 USER node
 
+ENV PATH="/app:${PATH}"
+
+RUN echo 'alias openclaw=openclaw.mjs' >> ~/.bash_aliases
 # Start gateway server with default config.
 # Binds to loopback (127.0.0.1) by default for security.
 #
