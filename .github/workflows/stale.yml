@@ -1,9 +1,6 @@
 name: Stale
 
-on:
-  schedule:
-    - cron: "17 3 * * *"
-  workflow_dispatch:
+on: [workflow_dispatch] # disabled in fork — rely on upstream
 
 permissions: {}
 

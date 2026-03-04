@@ -1,17 +1,6 @@
 name: Docker Release
 
-on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.mdx"
-      - ".agents/**"
-      - "skills/**"
+on: [workflow_dispatch] # disabled in fork — rely on upstream
 
 concurrency:
   group: docker-release-${{ github.workflow }}-${{ github.ref }}
