@@ -63,7 +63,6 @@ ENV NODE_ENV=production
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges
-USER node
 
 ENV PATH="/app:${PATH}"
 
@@ -71,6 +70,8 @@ RUN echo 'alias openclaw=openclaw.mjs' >> ~/.bash_aliases
 # Start gateway server with default config.
 # Binds to loopback (127.0.0.1) by default for security.
 #
+USER root
+# This entrypoint drops from root to node after changing ~/.openclaw ownership
 ENTRYPOINT ["entrypoint.sh"]
 # For container platforms requiring external health checks:
 #   1. Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD env var
