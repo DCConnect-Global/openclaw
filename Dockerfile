@@ -144,6 +144,7 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 # Pass extra brew packages at build time, e.g.:
 #   --build-arg OPENCLAW_DOCKER_brew_PACKAGES="uv openai-whisper"
 # Use --verbose to see the actual error in GitHub Action logs
+USER node
 ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&1; then \
       brew update && \
