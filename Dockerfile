@@ -126,7 +126,13 @@ ENV NODE_ENV=production
 USER node
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
-RUN brew install uv
+
+# Pass extra brew packages at build time, e.g.:
+#   --build-arg OPENCLAW_DOCKER_brew_PACKAGES="uv openai-whisper"
+ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
+RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ]; then \
+      brew install $OPENCLAW_DOCKER_BREW_PACKAGES
+    fi
 
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
