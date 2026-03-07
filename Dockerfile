@@ -175,4 +175,4 @@ HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
 # This entrypoint drops from root to node after fixing ~/.openclaw ownership.
 # CMD is provided by docker-compose (or an override) rather than baked in.
 USER root
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
