@@ -148,6 +148,7 @@ COPY --from=runtime-assets --chown=node:node /app/dist ./dist
 COPY --from=runtime-assets --chown=node:node /app/node_modules ./node_modules
 COPY --from=runtime-assets --chown=node:node /app/package.json .
 COPY --from=runtime-assets --chown=node:node /app/openclaw.mjs .
+COPY --from=runtime-assets --chown=node:node /app/entrypoint.sh .
 COPY --from=runtime-assets --chown=node:node /app/extensions ./extensions
 COPY --from=runtime-assets --chown=node:node /app/skills ./skills
 COPY --from=runtime-assets --chown=node:node /app/docs ./docs
@@ -256,10 +257,10 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 # Pass extra brew packages at build time, e.g.:
 #   --build-arg OPENCLAW_DOCKER_brew_PACKAGES="uv openai-whisper"
 # Use --verbose to see the actual error in GitHub Action logs
+RUN mkdir -p /home/node/.cache/Homebrew && chown -R node:node /home/node/.cache
 USER node
 ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&1; then \
-      mkdir -p /home/node/.cache/Homebrew
       brew update && \
       for pkg in $OPENCLAW_DOCKER_BREW_PACKAGES; do \
         brew install --quiet "$pkg" || exit 1; \
