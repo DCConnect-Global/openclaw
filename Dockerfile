@@ -259,6 +259,7 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 USER node
 ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&1; then \
+      mkdir -p /home/node/.cache/Homebrew
       brew update && \
       for pkg in $OPENCLAW_DOCKER_BREW_PACKAGES; do \
         brew install --quiet "$pkg" || exit 1; \
