@@ -55,6 +55,7 @@ jobs:
             OPENCLAW_INSTALL_BROWSER=1
             OPENCLAW_DOCKER_APT_PACKAGES=vim gosu sudo
             OPENCLAW_DOCKER_BREW_PACKAGES=uv openai-whisper          
+            OPENCLAW_DOCKER_NPM_PACKAGES=pm2
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

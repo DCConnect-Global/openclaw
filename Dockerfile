@@ -51,7 +51,7 @@ COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY --chown=node:node ui/package.json ./ui/package.json
 COPY --chown=node:node patches ./patches
 
-COPY --from=ext-deps /out/ ./extensions/
+COPY --from=ext-deps --chown=node:node /out/ ./extensions/
 
 # Allow the node user passwordless sudo (requires "sudo" in
 # OPENCLAW_DOCKER_APT_PACKAGES). Harmless no-op if sudo is absent.
@@ -239,12 +239,21 @@ ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}
 #   --build-arg OPENCLAW_DOCKER_brew_PACKAGES="uv openai-whisper"
 # Use --verbose to see the actual error in GitHub Action logs
 RUN mkdir -p /home/node/.cache/Homebrew && chown -R node:node /home/node/.cache
+RUN mkdir -p /home/node/.npm && chown -R node:node /home/node/.npm
+RUN mkdir -p /home/node/.pm2 && chown -R node:node /home/node/.pm2
 USER node
 ARG OPENCLAW_DOCKER_BREW_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&1; then \
       brew update && \
       for pkg in $OPENCLAW_DOCKER_BREW_PACKAGES; do \
         brew install --quiet "$pkg" || exit 1; \
+      done; \
+    fi
+
+ARG OPENCLAW_DOCKER_NPM_PACKAGES=""
+RUN if [ -n "$OPENCLAW_DOCKER_NPM_PACKAGES" ] && command -v npm >/dev/null 2>&1; then \
+      for pkg in $OPENCLAW_DOCKER_NPM_PACKAGES; do \
+        npm install -g "$pkg" || exit 1; \
       done; \
     fi
 
