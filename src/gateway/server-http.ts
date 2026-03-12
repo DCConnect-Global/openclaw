@@ -76,7 +76,7 @@ const HOOK_AUTH_FAILURE_WINDOW_MS = 60_000;
 
 type HookDispatchers = {
   dispatchWakeHook: (value: { text: string; mode: "now" | "next-heartbeat" }) => void;
-  dispatchAgentHook: (value: HookAgentDispatchPayload) => string;
+  dispatchAgentHook: (value: HookAgentDispatchPayload) => string | { ok: false; error: string };
 };
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
@@ -472,7 +472,7 @@ export function createHooksRequestHandler(
         return true;
       }
       const targetAgentId = resolveHookTargetAgentId(hooksConfig, normalized.value.agentId);
-      const runId = dispatchAgentHook({
+      const result = dispatchAgentHook({
         ...normalized.value,
         sessionKey: normalizeHookDispatchSessionKey({
           sessionKey: sessionKey.value,
@@ -480,7 +480,11 @@ export function createHooksRequestHandler(
         }),
         agentId: targetAgentId,
       });
-      sendJson(res, 200, { ok: true, runId });
+      if (typeof result !== "string") {
+        sendJson(res, 500, result);
+        return true;
+      }
+      sendJson(res, 200, { ok: true, runId: result });
       return true;
     }
 
@@ -529,7 +533,7 @@ export function createHooksRequestHandler(
             return true;
           }
           const targetAgentId = resolveHookTargetAgentId(hooksConfig, mapped.action.agentId);
-          const runId = dispatchAgentHook({
+          const mappedResult = dispatchAgentHook({
             message: mapped.action.message,
             name: mapped.action.name ?? "Hook",
             agentId: targetAgentId,
@@ -546,7 +550,11 @@ export function createHooksRequestHandler(
             timeoutSeconds: mapped.action.timeoutSeconds,
             allowUnsafeExternalContent: mapped.action.allowUnsafeExternalContent,
           });
-          sendJson(res, 200, { ok: true, runId });
+          if (typeof mappedResult !== "string") {
+            sendJson(res, 500, mappedResult);
+            return true;
+          }
+          sendJson(res, 200, { ok: true, runId: mappedResult });
           return true;
         }
       } catch (err) {
