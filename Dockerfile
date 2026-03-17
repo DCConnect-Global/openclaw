@@ -269,6 +269,7 @@ RUN if [ -n "$OPENCLAW_DOCKER_BREW_PACKAGES" ] && command -v brew >/dev/null 2>&
       done; \
     fi
 
+USER root
 ARG OPENCLAW_DOCKER_NPM_PACKAGES=""
 RUN if [ -n "$OPENCLAW_DOCKER_NPM_PACKAGES" ] && command -v npm >/dev/null 2>&1; then \
       for pkg in $OPENCLAW_DOCKER_NPM_PACKAGES; do \
@@ -297,5 +298,4 @@ HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
 
 # This entrypoint drops from root to node after fixing ~/.openclaw ownership.
 # CMD is provided by docker-compose (or an override) rather than baked in.
-USER root
 ENTRYPOINT ["/app/entrypoint.sh"]
